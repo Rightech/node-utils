@@ -1,4 +1,7 @@
 
+const path = require('path');
+const stackTrace = require('stack-trace');
+
 function isMongoId(id) {
   return id && id._bsontype && id._bsontype === 'ObjectID';
 }

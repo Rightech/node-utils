@@ -10,10 +10,10 @@ insert_final_newline = true
 
 # Matches multiple files with brace expansion notation
 # Set default charset
-[*.{js,css,html,less,jade}]
+[*.{js,ts,css,html,less,jade}]
 charset = utf-8
 
 # 2 space indentation
-[*.{js,css,html,less,jade}]
+[*.{js,ts,css,html,less,jade}]
 indent_style = space
 indent_size = 2

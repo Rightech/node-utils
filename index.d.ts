@@ -36,3 +36,6 @@ interface Traverse<T> {
   filter(pred: (node: T) => boolean): T[];
 }
 export declare function traverse<T>(tree: T & { children: T[] }): Traverse<T & { children: T[] }>;
+
+/* @file ./src/template.js */
+export declare function template<T>(template: string, context: T): any;

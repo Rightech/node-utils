@@ -35,6 +35,9 @@ Object.assign(expressions.filters, {
 });
 
 function normalizePath(path) {
+  if (!path.includes('-')) {
+    return path;
+  }
   const [first, ...rest] = path.split('.');
   if (!rest.length) {
     return first;

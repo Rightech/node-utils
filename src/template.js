@@ -60,7 +60,7 @@ module.exports = function parseTemplate(text = '', context = {}) {
     if (type === 'name') {
       value = normalizePath(value);
       try {
-        evaluate = expressions.compile(value);
+        const evaluate = expressions.compile(value);
         value = evaluate(context);
       } catch (e) {
         console.log(new Date, 'parseTemplate err', e);

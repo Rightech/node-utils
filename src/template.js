@@ -46,7 +46,16 @@ function normalizePath(path) {
   return `${first}${normalized}`;
 }
 
-module.exports = function parseTemplate(text = '', context = {}) {
+function logEvalError(text, context, value, err) {
+  console.log(new Date, 'parseTemplate err', err);
+  console.log('. text', text);
+  console.log('. value', value);
+  if (context['_@id']) {
+    console.log('. _@id', context['_@id']);
+  }
+}
+
+module.exports = function parseTemplate(text = '', context = {}, opts = {}) {
   let result = '';
   const parsed = mustache.parse(text);
 
@@ -62,8 +71,12 @@ module.exports = function parseTemplate(text = '', context = {}) {
       try {
         const evaluate = expressions.compile(value);
         value = evaluate(context);
-      } catch (e) {
-        console.log(new Date, 'parseTemplate err', e);
+      } catch (err) {
+        if (opts.noSilentError) {
+          throw err;
+        }
+        logEvalError(text, context, value, err);
+
         value = safe.get(context, value);
       }
     }

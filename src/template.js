@@ -23,6 +23,26 @@ const nanoid = require('nanoid');
 const format = require('./format');
 const safe = require('./safe');
 
+function every(input, value) {
+  if (!input || !input.every) {
+    return false;
+  }
+  if (!value || !value.includes) {
+    return false;
+  }
+  return input.every(one => value.includes(one));
+}
+
+function some(input, value) {
+  if (!input || !input.some) {
+    return false;
+  }
+  if (!value || !value.includes) {
+    return false;
+  }
+  return input.some(one => value.includes(one));
+}
+
 Object.assign(expressions.filters, {
   date: format.date,
   time: format.time,
@@ -31,7 +51,9 @@ Object.assign(expressions.filters, {
   timeSpan: format.timeSpan,
   number: format.number,
   currency: format.currency,
-  percent: format.percent
+  percent: format.percent,
+  every,
+  some
 });
 
 function normalizePath(path) {
@@ -67,7 +89,9 @@ module.exports = function parseTemplate(text = '', context = {}, opts = {}) {
   for (let tpl of parsed) {
     let [type, value] = tpl;
     if (type === 'name') {
-      value = normalizePath(value);
+      if (opts.normalizePaths) {
+        value = normalizePath(value);
+      }
       try {
         const evaluate = expressions.compile(value);
         value = evaluate(context);

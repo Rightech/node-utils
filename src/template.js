@@ -43,6 +43,10 @@ function some(input, value) {
   return input.some(one => value.includes(one));
 }
 
+function none(input, value) {
+  return !some(input, value);
+}
+
 Object.assign(expressions.filters, {
   date: format.date,
   time: format.time,
@@ -53,7 +57,8 @@ Object.assign(expressions.filters, {
   currency: format.currency,
   percent: format.percent,
   every,
-  some
+  some,
+  none
 });
 
 function normalizePath(path) {

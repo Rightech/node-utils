@@ -18,7 +18,7 @@
   },
   "homepage": "https://github.com/Rightech/node-utils#readme",
   "dependencies": {
-    "angular-expressions": "^1.0.0",
+    "angular-expressions": "^1.1.1",
     "colors": "^1.4.0",
     "deepmerge": "^4.2.2",
     "mustache": "^3.1.0",

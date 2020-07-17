@@ -18,6 +18,8 @@
 
 const expressions = require('angular-expressions');
 const mustache = require('mustache');
+const walk = require('acorn-walk');
+
 const nanoid = require('nanoid');
 
 const format = require('./format');
@@ -99,6 +101,11 @@ module.exports = function parseTemplate(text = '', context = {}, opts = {}) {
       }
       try {
         const evaluate = expressions.compile(value);
+        walk.full(evaluate.ast, node => {
+          if (!opts.allowAssignments && node.type === 'AssignmentExpression') {
+            throw new Error('no assignments allowed');
+          }
+        });
         value = evaluate(context);
       } catch (err) {
         if (opts.noSilentError) {

@@ -19,6 +19,7 @@
 module.exports = Object.assign({}, {
   node: require('./src/node'),
   safe: require('./src/safe'),
+  time: require('./src/time'),
   format: require('./src/format'),
   traverse: require('./src/traverse'),
   template: require('./src/template'),

@@ -15,6 +15,7 @@
  * limitations under the License.
  */
 
+const { unique, only } = require('./src/filter');
 
 module.exports = Object.assign({}, {
   node: require('./src/node'),
@@ -23,5 +24,7 @@ module.exports = Object.assign({}, {
   format: require('./src/format'),
   traverse: require('./src/traverse'),
   template: require('./src/template'),
-  log: require('./src/log')
+  log: require('./src/log'),
+  unique,
+  only
 });

@@ -39,3 +39,8 @@ export declare function traverse<T>(tree: T & { children: T[] }): Traverse<T & {
 
 /* @file ./src/template.js */
 export declare function template<T>(template: string, context: T): any;
+
+
+/* @file ./src/filter.js */
+export declare function unique<T>(array: T[] = []): T[];
+export declare function only<T, K extends keyof T>(object: T, keys: K | K[] = []): Pick<T, K>;

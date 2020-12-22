@@ -21,6 +21,7 @@ const DEFAULT_FALLBACK = '-';
 const DEFAULT_LOCALE = 'en';
 const DEFAULT_24H_LOCALE = 'en-GB';
 
+const timeOf1 = timeOf(1);
 
 let fallback = DEFAULT_FALLBACK;
 let currentLocale = DEFAULT_LOCALE;
@@ -125,6 +126,35 @@ function currency(value, currency, locale) {
   return new Intl.NumberFormat(locale, style).format(value);
 }
 
+function sinceUnitBestFit(ms) {
+  ms = Math.abs(ms);
+  if (ms < timeOf1.minutes) {
+    return 'second';
+  }
+  if (ms < timeOf1.hours) {
+    return 'minute';
+  }
+  if (ms < timeOf1.days) {
+    return 'hour';
+  }
+  return 'day';
+}
+
+function since(value, locale) {
+  if (typeof value === 'string') {
+    value = +value;
+  }
+  if (!value || isNaN(value)) {
+    return fallback;
+  }
+  value = value - getLocalTime();
+  const unit = sinceUnitBestFit(value);
+  const bestValue =  Math.floor(value / timeOf1[`${unit}s`]);
+
+  return getIntl('RelativeTimeFormat', 'auto', locale, { numeric: 'auto' })
+    .format(bestValue, unit);
+}
+
 /*
 function normalize(term, separator) {
   term = (term || '').toString();
@@ -161,5 +191,6 @@ module.exports = {
   timeSpan,
   number,
   currency,
-  percent
+  percent,
+  since
 };

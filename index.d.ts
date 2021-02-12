@@ -1,8 +1,6 @@
-
 /* @file ./src/log.js */
-
 interface LogggerOptions {
-  level: number; /* 0 | 1 | 2 | 3 | 4 */
+  level: number /* 0 | 1 | 2 | 3 | 4 */;
   time: 'iso' | 'ru' | 'en';
 }
 interface Loggger {
@@ -17,17 +15,18 @@ interface Loggger {
 
 export declare var log: Loggger;
 
-
 /* @file ./src/safe.js */
 interface SafeOps {
   bit(value: number, bit: number): boolean;
 
-  get<TObject extends object, TKey extends keyof TObject>(object: TObject, path: TKey): TObject[TKey];
+  get<TObject extends object, TKey extends keyof TObject>(
+    object: TObject,
+    path: TKey
+  ): TObject[TKey];
   set<TObject extends object, T>(object: TObject, path: string, value: T): T;
   unset<TObject extends object>(object: TObject, path: string): void;
 }
 export declare var safe: SafeOps;
-
 
 /* @file ./src/traverse.js */
 interface Traverse<T> {
@@ -35,12 +34,35 @@ interface Traverse<T> {
   find(pred: (node: T) => boolean): T;
   filter(pred: (node: T) => boolean): T[];
 }
-export declare function traverse<T>(tree: T & { children: T[] }): Traverse<T & { children: T[] }>;
+export declare function traverse<T>(
+  tree: T & { children: T[] }
+): Traverse<T & { children: T[] }>;
 
 /* @file ./src/template.js */
 export declare function template<T>(template: string, context: T): any;
 
-
 /* @file ./src/filter.js */
 export declare function unique<T>(array: T[] = []): T[];
-export declare function only<T, K extends keyof T>(object: T, keys: K | K[] = []): Pick<T, K>;
+export declare function only<T, K extends keyof T>(
+  object: T,
+  keys: K | K[] = []
+): Pick<T, K>;
+
+/* @file ./src/api.js */
+
+interface ApiClientOpts {
+  url?: string;
+  token?: string;
+}
+class ApiClient {
+  constructor(opts: ApiClientOpts): ApiClient;
+
+  with(opts: ApiClientOpts): ApiClient;
+
+  get<T, Q = { [k: string]: any }>(path: string, query: Q): Promise<T>;
+  post<T>(path: string, data: Partial<T>): Promise<T>;
+  patch<T>(path: string, data: Partial<T>): Promise<T>;
+  delete<T>(path: string): Promise<T>;
+}
+
+export declare var api: ApiClient;

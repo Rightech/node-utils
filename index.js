@@ -25,6 +25,7 @@ module.exports = Object.assign({}, {
   traverse: require('./src/traverse'),
   template: require('./src/template'),
   log: require('./src/log'),
+  api: require('./src/api'),
   unique,
   only
 });

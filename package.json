@@ -22,7 +22,7 @@
     "angular-expressions": "^1.1.1",
     "colors": "^1.4.0",
     "deepmerge": "^4.2.2",
-    "mustache": "^3.1.0",
+    "mustache": "^4.0.0",
     "nanoid": "^2.1.6",
     "stack-trace": "0.0.10"
   },

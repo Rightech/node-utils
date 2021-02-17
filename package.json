@@ -23,7 +23,7 @@
     "colors": "^1.4.0",
     "deepmerge": "^4.2.2",
     "mustache": "^3.1.0",
-    "nanoid": "^2.1.6",
+    "nanoid": "^3.0.0",
     "stack-trace": "0.0.10"
   },
   "typings": "index.d.ts"

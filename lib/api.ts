@@ -1,7 +1,6 @@
 //import { resolve, parse } from "url";
 //import { join } from "path";
 
-// @ts-ignore
 import { unique } from './misc.ts';
 
 export type ItemId = string;

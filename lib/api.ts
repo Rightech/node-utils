@@ -180,7 +180,7 @@ export class Client {
     return req(url.toString(), { method: 'DELETE', headers });
   }
 
-  // with(opts = {}) {
-  //   return new ApiClient({ ...(this._opts || {}), ...opts });
-  // }
+  with(opts: ClientOpts = {}) {
+    return new Client({ ...(this._opts || {}), ...opts });
+  }
 }

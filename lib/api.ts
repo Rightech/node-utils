@@ -23,11 +23,17 @@ export interface BaseItem extends ApiResponse {
   _at?: number;
 }
 
+export type ApiErrorHelper = {
+  message?: string;
+  links?: string[];
+};
+
 export class ApiError extends Error {
   jti: string = '';
   url: string = '';
   tags: string[] = [];
   code = 500;
+  helper = {} as ApiErrorHelper;
 
   constructor(message: string) {
     super(message);
@@ -53,6 +59,11 @@ export class ApiError extends Error {
 
   withTags(tags: string[] = []) {
     this.tags = unique([...this.tags, ...(tags || [])]);
+    return this;
+  }
+
+  withHelper(helper: ApiErrorHelper) {
+    this.helper = helper;
     return this;
   }
 
@@ -85,64 +96,36 @@ export class NginxError extends ApiError {
   }
 }
 
-// export function req<T, U = unknown>(url: string, opts: any = {}, data: U = null) {
-//   const { protocol, hostname, port, path } = parse(url);
-//   const proto = protocol === 'https:' ? https : http;
+type KVM = { [k: string]: string };
 
-//   opts = {
-//     method: 'GET',
-//     host: hostname,
-//     port: +port,
-//     path,
-//     ...opts
-//   };
+export interface RequestOptions {
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  headers?: KVM;
+}
 
-//   if (!port) {
-//     opts.port = protocol === 'https:' ? 443 : 80;
-//   }
+export async function req<T, U = unknown>(
+  url: string,
+  opts: RequestOptions = {},
+  data?: U
+) {
+  const resp = await fetch(url, {
+    ...opts
+  });
 
-//   return new Promise<T>((resolve, reject) => {
-//     const req = proto.request(opts, (res) => {
-//       let resp = '';
-//       res.on('data', (chunk) => (resp += chunk.toString()));
-//       res.on('end', () => {
-//         try {
-//           /*
-//            * most nginx upstream errors should be handled by ingress default-backend
-//            * but who knows ...
-//            */
-//           if (resp.startsWith('<html>') && resp.includes('nginx')) {
-//             return reject(NginxError.fromHtml(resp, res.statusCode).withUrl(url));
-//           }
+  const json = await resp.json();
 
-//           const json = JSON.parse(resp);
-//           if (res.statusCode >= 400) {
-//             return reject(
-//               new ApiError(json.message)
-//                 .withCode(res.statusCode)
-//                 .withTags(json.tags)
-//                 .withUrl(url)
-//             );
-//           }
-//           resolve(json);
-//         } catch (err) {
-//           console.log(resp);
-//           reject(err);
-//         }
-//       });
-//     });
-//     req.on('error', (err) => reject(err));
+  console.log('.xxx', resp.status);
 
-//     if (data) {
-//       let send = data as any;
-//       if (typeof data === 'object') {
-//         send = JSON.stringify(data);
-//       }
-//       req.write(send);
-//     }
-//     req.end();
-//   });
-// }
+  if (resp.status >= 300) {
+    throw new ApiError(json.message)
+      .withHelper(json.helper)
+      .withTags(json.tags)
+      .withCode(resp.status)
+      .withUrl(url);
+  }
+
+  return json;
+}
 
 export interface ClientOpts {
   url?: string;
@@ -162,40 +145,40 @@ export class Client {
   }
 
   getDefaultHeaders() {
-    const defaults = {
+    const defaults: KVM = {
       accept: 'application/json',
       'content-type': 'application/json',
       'user-agent': `npm:@rightech/utils 1.1`
     };
-    // if (this.token) {
-    //   defaults.authorization = `Bearer ${this.token}`;
-    // }
+    if (this.token) {
+      defaults.authorization = `Bearer ${this.token}`;
+    }
     return defaults;
   }
 
-  // get(path, query = {}) {
-  //   const url = resolve(this.url, path);
-  //   const headers = this.getDefaultHeaders();
-  //   return req(url, { method: 'GET', headers });
-  // }
+  get<T = unknown>(path: string, query = {}): Promise<T> {
+    const url = new URL(path, this.url);
+    const headers = this.getDefaultHeaders();
+    return req(url.toString(), { method: 'GET', headers });
+  }
 
-  // post(path, data = {}) {
-  //   const url = resolve(this.url, path);
-  //   const headers = this.getDefaultHeaders();
-  //   return req(url, { method: 'POST', headers }, data);
-  // }
+  post<T = unknown>(path: string, data: Partial<T> = {}): Promise<T> {
+    const url = new URL(path, this.url);
+    const headers = this.getDefaultHeaders();
+    return req(url.toString(), { method: 'POST', headers }, data);
+  }
 
-  // patch(path, data = {}) {
-  //   const url = resolve(this.url, path);
-  //   const headers = this.getDefaultHeaders();
-  //   return req(url, { method: 'PATCH', headers }, data);
-  // }
+  patch<T = unknown>(path: string, data: Partial<T> = {}): Promise<T> {
+    const url = new URL(path, this.url);
+    const headers = this.getDefaultHeaders();
+    return req(url.toString(), { method: 'PATCH', headers }, data);
+  }
 
-  // delete(path) {
-  //   const url = resolve(this.url, path);
-  //   const headers = this.getDefaultHeaders();
-  //   return req(url, { method: 'DELETE', headers });
-  // }
+  delete<T = unknown>(path: string): Promise<T> {
+    const url = new URL(path, this.url);
+    const headers = this.getDefaultHeaders();
+    return req(url.toString(), { method: 'DELETE', headers });
+  }
 
   // with(opts = {}) {
   //   return new ApiClient({ ...(this._opts || {}), ...opts });

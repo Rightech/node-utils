@@ -75,7 +75,15 @@ function summary(message) {
   }
   if (message instanceof Error) {
     const joiner = colors.red('* ');
-    return message.stack.split('  at').join(joiner);
+    let [msg, ...rest] =  message.stack.split('  at');
+    msg = msg.trim();
+    if (message.tags && message.tags.length) {
+      msg = `${msg} ${JSON.stringify(message.tags)}`
+    }
+    if (message.more) {
+      msg = `${msg} with ${JSON.stringify(message.more)}`
+    }
+    return [`${msg}\n  `, ...rest].join(joiner);
   }
   return inspect(message);
 }

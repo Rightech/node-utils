@@ -1,7 +1,5 @@
-//import { resolve, parse } from "url";
-//import { join } from "path";
-
-import { unique } from './misc.ts';
+import { unique } from './misc';
+import statusCodes from './codes';
 
 export type ItemId = string;
 
@@ -25,6 +23,15 @@ export interface BaseItem extends ApiResponse {
 export type ApiErrorHelper = {
   message?: string;
   links?: string[];
+};
+
+export type KVM = { [k: string]: string };
+
+export type RequestOptions<T = unknown> = {
+  url: string;
+  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  headers?: KVM;
+  body?: T;
 };
 
 export class ApiError extends Error {
@@ -75,6 +82,13 @@ export class ApiError extends Error {
     this.url = url;
     return this;
   }
+
+  static fromJson(opts: RequestOptions, json: ApiError, statusCode = 500) {
+    return new ApiError(json.message)
+      .withCode(statusCode)
+      .withTags(json.tags)
+      .withUrl(opts.url);
+  }
 }
 
 export class NginxError extends ApiError {
@@ -85,42 +99,87 @@ export class NginxError extends ApiError {
     return this;
   }
 
-  static fromHtml(resp = '', statusCode = 500) {
+  static fromHtml(opts: RequestOptions, resp = '', statusCode = 500) {
     let [, title = 'Unknown nginx errror'] = /<title>(.*?)<\/title>/gi.exec(resp) || [];
     title = title.replace(statusCode.toString(), '').trim();
 
-    // return new NginxError(http.STATUS_CODES[statusCode])
-    //   .withCode(statusCode)
-    //   .withTitle(title);
+    return new NginxError(statusCodes[statusCode])
+      .withCode(statusCode)
+      .withTitle(title)
+      .withUrl(opts.url);
   }
 }
 
-type KVM = { [k: string]: string };
+export function nodeReq<Q = unknown, S = unknown>(opts: RequestOptions<Q>): Promise<S> {
+  const { protocol, hostname, port, pathname } = new URL(opts.url);
 
-export interface RequestOptions {
-  method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
-  headers?: KVM;
+  const proto = protocol === 'https:' ? require('https') : require('http');
+
+  const options = {
+    method: 'GET',
+    host: hostname,
+    port: +port,
+    path: pathname,
+    ...opts
+  };
+
+  if (!port) {
+    options.port = protocol === 'https:' ? 443 : 80;
+  }
+
+  return new Promise((resolve, reject) => {
+    const req = proto.request(options, (res) => {
+      let resp = '';
+      res.on('data', (chunk) => (resp += chunk.toString()));
+      res.on('end', () => {
+        try {
+          /*
+           * most nginx upstream errors should be handled by ingress default-backend
+           * but who knows ...
+           */
+          if (resp.startsWith('<html>') && resp.includes('nginx')) {
+            return reject(NginxError.fromHtml(opts, resp, res.statusCode));
+          }
+          const json = JSON.parse(resp);
+          if (res.statusCode >= 400) {
+            return reject(ApiError.fromJson(opts, json, res.statusCode));
+          }
+          resolve(json);
+        } catch (err) {
+          console.log(resp);
+          reject(err);
+        }
+      });
+    });
+
+    req.on('error', (err) => reject(err));
+
+    if (opts.body) {
+      let send = opts.body as any;
+      if (typeof send === 'object') {
+        send = JSON.stringify(opts.body);
+      }
+      req.write(send);
+    }
+    req.end();
+  });
 }
 
-export async function req<T, U = unknown>(
-  url: string,
-  opts: RequestOptions = {},
-  data?: U
-) {
-  const resp = await fetch(url, {
-    ...opts
+export async function req<Q = unknown, S = unknown>(opts: RequestOptions<Q>): Promise<S> {
+  if (typeof fetch !== 'function') {
+    return nodeReq(opts);
+  }
+
+  const resp = await fetch(opts.url, {
+    headers: opts.headers,
+    method: opts.method || 'GET',
+    body: <any>opts.body || null
   });
 
   const json = await resp.json();
 
-  console.log('.xxx', resp.status);
-
-  if (resp.status >= 300) {
-    throw new ApiError(json.message)
-      .withHelper(json.helper)
-      .withTags(json.tags)
-      .withCode(resp.status)
-      .withUrl(url);
+  if (resp.status >= 400) {
+    throw ApiError.fromJson(opts, json, resp.status);
   }
 
   return json;
@@ -158,28 +217,33 @@ export class Client {
   get<T = unknown>(path: string, query = {}): Promise<T> {
     const url = new URL(path, this.url);
     const headers = this.getDefaultHeaders();
-    return req(url.toString(), { method: 'GET', headers });
+    return req({ url: url.toString(), method: 'GET', headers });
   }
 
   post<T = unknown>(path: string, data: Partial<T> = {}): Promise<T> {
     const url = new URL(path, this.url);
     const headers = this.getDefaultHeaders();
-    return req(url.toString(), { method: 'POST', headers }, data);
+    return req({ url: url.toString(), method: 'POST', headers, body: data });
   }
 
   patch<T = unknown>(path: string, data: Partial<T> = {}): Promise<T> {
     const url = new URL(path, this.url);
     const headers = this.getDefaultHeaders();
-    return req(url.toString(), { method: 'PATCH', headers }, data);
+    return req({ url: url.toString(), method: 'PATCH', headers, body: data });
   }
 
   delete<T = unknown>(path: string): Promise<T> {
     const url = new URL(path, this.url);
     const headers = this.getDefaultHeaders();
-    return req(url.toString(), { method: 'DELETE', headers });
+    return req({ url: url.toString(), method: 'DELETE', headers });
   }
 
   with(opts: ClientOpts = {}) {
     return new Client({ ...(this._opts || {}), ...opts });
   }
 }
+
+export default new Client({
+  url: process.env['RIC_URL'] || 'https://dev.rightech.io/',
+  token: process.env['RIC_TOKEN']
+});

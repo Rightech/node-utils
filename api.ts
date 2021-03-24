@@ -1,78 +1,140 @@
-// @ts-ignore
-// deno-lint-ignore-file
+/* ----- api/v1 ----- */
 
-// ignore TS2580
+export interface BaseItem {}
+
+/** test comment */
+export type ItemId = string;
+
+export interface BaseItem {
+  _id: ItemId;
+
+  name: string;
+  description?: string;
+
+  owner: ItemId;
+  group: ItemId;
+}
+
+
+/* ----- api/v1/models ----- */
+
+export type BaseNode = {
+  type: string;
+  id: string;
+  name: string;
+  description?: string;
+  active: boolean;
+  children?: ModelNode[];
+};
+
+export type SystemNode = BaseNode & {
+  type: "subsystem";
+};
+
+export type EventNode = BaseNode & {
+  type: "event";
+};
+
+export type ActionNode = BaseNode & {
+  type: "action";
+  service: string;
+  command?: string;
+  params?: Record<string, string>;
+};
+
+export type ArgumentNode = BaseNode & {
+  type: "argument";
+  dataType: ArgumentDataType;
+  unit?: string;
+};
+
+export type ArgumentDataType =
+  | "number"
+  | "boolean"
+  | "string"
+  | "object"
+  | string;
+
+export type ModelNode =
+  | BaseNode
+  | SystemNode
+  | EventNode
+  | ArgumentNode
+  | ActionNode;
+
+
+export type ModelProps = {
+  bots?: boolean;
+  protocol?: string;
+  idPattern?: string;
+};
+
+export interface Model extends BaseItem {
+  base: string;
+  data: ModelNode;
+  props?: ModelProps;
+}
+
+
+/* ----- api/v1/objects ----- */
+export type ServiceState = {
+  _ts: number;
+  _oid: ItemId;
+  _gid: ItemId;
+  time: number;
+  online: boolean;
+}
+
+export type BaseState = ServiceState & {
+  [argumentId: string]: number | boolean | string | BaseState;
+};
+
+export type BaseConfig = {
+  [parentId: string]: {
+    [argumentId: string]: number | boolean | string;
+  };
+};
+
+export interface RicObject<TState = BaseState, TConfig = BaseConfig>
+  extends BaseItem {
+  id: string;
+  model: ItemId;
+
+  state?: TState;
+  config?: TConfig;
+}
+
+/**
+ * Type alias exported, but not recommended to use
+ * sinse it conflicts with JavaScript `Object` built-in
+ */
+export type Object<TState = BaseState, TConfig = BaseConfig> = RicObject<
+  TState,
+  TConfig
+>;
+
+
+/* ----- api/v1/events ----- */
+export interface Event<T = unknown> {
+  _msgid: string;
+  _oid?: ItemId;
+  _gid?: ItemId;
+
+  service?: string;
+  event: string;
+  time: number;
+  data: T;
+}
+
+
+/* ----- client lib ----- */
 declare var require: any;
 
 export const VERSION = "v1";
+export const DEFAULT_BASE_URL = "https://dev.rightech.io/";
 
-export const CODES: Record<string, string> = {
-  "100": "Continue",
-  "101": "Switching Protocols",
-  "102": "Processing",
-  "103": "Early Hints",
-  "200": "OK",
-  "201": "Created",
-  "202": "Accepted",
-  "203": "Non-Authoritative Information",
-  "204": "No Content",
-  "205": "Reset Content",
-  "206": "Partial Content",
-  "207": "Multi-Status",
-  "208": "Already Reported",
-  "226": "IM Used",
-  "300": "Multiple Choices",
-  "301": "Moved Permanently",
-  "302": "Found",
-  "303": "See Other",
-  "304": "Not Modified",
-  "305": "Use Proxy",
-  "307": "Temporary Redirect",
-  "308": "Permanent Redirect",
-  "400": "Bad Request",
-  "401": "Unauthorized",
-  "402": "Payment Required",
-  "403": "Forbidden",
-  "404": "Not Found",
-  "405": "Method Not Allowed",
-  "406": "Not Acceptable",
-  "407": "Proxy Authentication Required",
-  "408": "Request Timeout",
-  "409": "Conflict",
-  "410": "Gone",
-  "411": "Length Required",
-  "412": "Precondition Failed",
-  "413": "Payload Too Large",
-  "414": "URI Too Long",
-  "415": "Unsupported Media Type",
-  "416": "Range Not Satisfiable",
-  "417": "Expectation Failed",
-  "418": "I'm a Teapot",
-  "421": "Misdirected Request",
-  "422": "Unprocessable Entity",
-  "423": "Locked",
-  "424": "Failed Dependency",
-  "425": "Unordered Collection",
-  "426": "Upgrade Required",
-  "428": "Precondition Required",
-  "429": "Too Many Requests",
-  "431": "Request Header Fields Too Large",
-  "451": "Unavailable For Legal Reasons",
-  "500": "Internal Server Error",
-  "501": "Not Implemented",
-  "502": "Bad Gateway",
-  "503": "Service Unavailable",
-  "504": "Gateway Timeout",
-  "505": "HTTP Version Not Supported",
-  "506": "Variant Also Negotiates",
-  "507": "Insufficient Storage",
-  "508": "Loop Detected",
-  "509": "Bandwidth Limit Exceeded",
-  "510": "Not Extended",
-  "511": "Network Authentication Required",
-};
-
-export interface ApiResponse {
+export type DeprecatedResponseFields = {
+  codes: string[];
   success: boolean;
 }
 
@@ -95,7 +157,6 @@ function unique<T = unknown>(array: T[] = []) {
 }
 
 export class ApiError extends Error {
-  jti: string = "";
   url: string = "";
   verb: string = "GET";
   tags: string[] = [];
@@ -110,18 +171,6 @@ export class ApiError extends Error {
     } else {
       this.stack = new Error(message).stack;
     }
-    //this.trySetTokenId();
-  }
-
-  trySetTokenId() {
-    // const [, b64] = (getToken() || '').split('.');
-    // if (b64) {
-    //   try {
-    //     // TODO: move to ./base64.ts decode
-    //     const payload = Buffer.from(b64, 'base64').toString();
-    //     this.jti = JSON.parse(payload).jti || '';
-    //   } catch (err) {}
-    // }
   }
 
   withTags(tags: string[] = []) {
@@ -168,24 +217,13 @@ export class ApiError extends Error {
 }
 
 export class NginxError extends ApiError {
-  title: any = "";
-
-  withTitle(title = "") {
-    this.title = title;
-    if (this.title) {
-      this.message = `${this.message}. ${this.title}`;
-    }
-    return this;
-  }
-
   static fromHtml(opts: RequestOptions, resp = "", statusCode = 500) {
     let [, title = "Unknown nginx errror"] =
       /<title>(.*?)<\/title>/gi.exec(resp) || [];
     title = title.replace(statusCode.toString(), "").trim();
 
-    return new NginxError(CODES[statusCode])
+    return new NginxError(title)
       .withCode(statusCode)
-      .withTitle(title)
       .withVerb(opts.method)
       .withUrl(opts.url);
   }
@@ -194,7 +232,7 @@ export class NginxError extends ApiError {
 export function nodeReq<Q = unknown, S = unknown>(
   opts: RequestOptions<Q>
 ): Promise<S> {
-  const { protocol, hostname, port, pathname } = new URL(opts.url);
+  const { protocol, hostname, port, pathname, search } = new URL(opts.url);
 
   const proto = protocol === "https:" ? require("https") : require("http");
 
@@ -202,7 +240,7 @@ export function nodeReq<Q = unknown, S = unknown>(
     method: "GET",
     host: hostname,
     port: +port,
-    path: pathname,
+    path: `${pathname}${search}`,
     ...opts,
   };
 
@@ -251,11 +289,14 @@ export function nodeReq<Q = unknown, S = unknown>(
   });
 }
 
-function tryGetFetch() {
+function tryGetFetch(): (
+  input: RequestInfo,
+  init?: RequestInit
+) => Promise<Response> {
   try {
     return require("node-fetch");
   } catch (_) {
-    return fetch;
+    return (globalThis as any)["fetch"] as any;
   }
 }
 
@@ -479,7 +520,7 @@ export async function reqReader<Q = unknown, S = unknown>(
     return nodeReadStream(resp.body);
   }
 
-  return read(resp.body);
+  return read(resp.body!);
 }
 
 export interface ClientOpts {
@@ -492,6 +533,52 @@ export interface StreamReader<T = unknown> {
   stream: ReadableStream<T>;
   readAll?: () => Promise<T[]>;
 }
+
+type Split<S extends string, D extends string> = string extends S
+  ? string[]
+  : S extends ""
+  ? []
+  : S extends `${infer T}${D}${infer U}`
+  ? [T, ...Split<U, D>]
+  : [S];
+
+type WellKnownGet<TProp> = TProp extends keyof WellKnown
+  ? WellKnown[TProp]
+  : WellKnown["/"];
+
+export interface WellKnown {
+  ["/"]: any;
+  [""]: any;
+}
+
+export interface MoreTypedClient {
+  get<P extends string = "/", T = WellKnownGet<Split<P, "/">[0]>>(
+    path: P
+  ): Promise<T[]>;
+
+  post<
+    P extends string = "/",
+    T = WellKnownGet<Split<P, "/">[0]>,
+    U = Partial<T>
+  >(
+    path: P,
+    data: U
+  ): Promise<T>;
+
+  patch<
+    P extends string = "/",
+    T = WellKnownGet<Split<P, "/">[0]>,
+    U = Partial<T>
+  >(
+    path: P,
+    data: U
+  ): Promise<T>;
+
+  delete<P extends string = "/", T = WellKnownGet<Split<P, "/">[0]>>(
+    path: P
+  ): Promise<T>;
+}
+
 export class Client {
   _opts: ClientOpts;
   url: string;
@@ -529,13 +616,16 @@ export class Client {
 
   get<T = unknown>(path: string): Promise<T> {
     const url = this.resolveUrl(path);
-    if (!url.searchParams.has("streamed")) {
-      url.searchParams.set("streamed", "true");
+    const headers = this.getHeaders();
+
+    if (!("ric-stream-hint" in headers)) {
+      headers["ric-stream-hint"] = "yes";
     }
+
     return req({
       method: "GET",
       url: url.toString(),
-      headers: this.getHeaders(),
+      headers,
     });
   }
 
@@ -580,3 +670,32 @@ export class Client {
     return reqReader({ url: url.toString(), method: "GET", headers });
   }
 }
+
+export function getDefaultClient(opts?: ClientOpts) : MoreTypedClient & Client {
+  const maybeNode = (globalThis as any)["process"] as any;
+  if (maybeNode && maybeNode.env) {
+    return new Client({
+      url: opts?.url ?? maybeNode.env["RIC_URL"] ?? DEFAULT_BASE_URL,
+      token: opts?.token ?? maybeNode.env["RIC_TOKEN"],
+    });
+  }
+  const maybeDeno = (globalThis as any)["Deno"] as any;
+  if (maybeDeno && maybeDeno.env) {
+    return new Client({
+      url: opts?.url ?? maybeDeno.env.get("RIC_URL") ?? DEFAULT_BASE_URL,
+      token: opts?.token ?? maybeDeno.env.get("RIC_TOKEN"),
+    });
+  }
+  const maybeLocation = (globalThis as any)["location"] as any;
+  if (maybeLocation && maybeLocation.origin) {
+    return new Client({
+      url: opts?.url ?? maybeLocation.origin,
+    });
+  }
+
+  return new Client({ url: DEFAULT_BASE_URL });
+}
+
+export default getDefaultClient();
+
+

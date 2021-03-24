@@ -47,22 +47,3 @@ export declare function only<T, K extends keyof T>(
   object: T,
   keys: K | K[] = []
 ): Pick<T, K>;
-
-/* @file ./src/api.js */
-
-interface ApiClientOpts {
-  url?: string;
-  token?: string;
-}
-class ApiClient {
-  constructor(opts: ApiClientOpts): ApiClient;
-
-  with(opts: ApiClientOpts): ApiClient;
-
-  get<T, Q = { [k: string]: any }>(path: string, query: Q): Promise<T>;
-  post<T>(path: string, data: Partial<T>): Promise<T>;
-  patch<T>(path: string, data: Partial<T>): Promise<T>;
-  delete<T>(path: string): Promise<T>;
-}
-
-export declare var api: ApiClient;

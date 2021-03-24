@@ -1,7 +1,5 @@
 /* ----- api/v1 ----- */
 
-export interface BaseItem {}
-
 /** test comment */
 export type ItemId = string;
 
@@ -127,7 +125,24 @@ export interface Event<T = unknown> {
 }
 
 
+/* ----- api/v1/index ----- */
+export interface WellKnown {
+  base: BaseItem;
+
+  models: Model;
+  objects: RicObject;
+
+  events: Event;
+}
+
+
+
+
 /* ----- client lib ----- */
+// @ts-ignore
+// deno-lint-ignore-file
+
+// ignore TS2580
 declare var require: any;
 
 export const VERSION = "v1";

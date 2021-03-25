@@ -86,25 +86,55 @@ export interface Model extends Base {
 
 /* ----- api/v1/objects ----- */
 export type ServiceState = {
+  _v: number;
   _ts: number;
   _oid: ItemId;
   _gid: ItemId;
+
   time: number;
   online: boolean;
 };
 
-export type BaseState = ServiceState & {
-  [argumentId: string]: number | boolean | string | BaseState;
+export type GeographyState = {
+  lat: number;
+  lon: number;
 };
 
-export type BaseConfig = {
+export type GeometryState = {
+  x: number;
+  y: number;
+  z?: number;
+};
+
+export type GpsState = GeographyState & {
+  alt: number;
+  speed: number;
+  sats?: number;
+};
+
+/**  we love MQTT so much that we even defined it in base types
+ *     (but we really shouldn't)  */
+export type MqttState = {
+  topic: string;
+  payload: string;
+};
+
+export type State = ServiceState &
+  GpsState &
+  MqttState &
+  GeometryState & {
+    [argumentId: string]: number | boolean | string;
+  };
+
+export type Config = {
   [parentId: string]: {
     [argumentId: string]: number | boolean | string;
   };
 };
 
-export interface RicObject<TState = BaseState, TConfig = BaseConfig>
-  extends Base {
+export type Packet = Partial<State>;
+
+export interface RicObject<TState = State, TConfig = Config> extends Base {
   id: string;
   model: ItemId;
 
@@ -116,7 +146,7 @@ export interface RicObject<TState = BaseState, TConfig = BaseConfig>
  * Type alias exported, but not recommended to use
  * sinse it conflicts with JavaScript `Object` built-in
  */
-export type Object<TState = BaseState, TConfig = BaseConfig> = RicObject<
+export type Object<TState = State, TConfig = Config> = RicObject<
   TState,
   TConfig
 >;
@@ -135,6 +165,117 @@ export interface Event<T = unknown> {
 }
 
 
+/* ----- api/v1/geofences ----- */
+export type Geography = [lat: number, lon: number];
+
+export type GeographyType =
+  | "polygon"
+  | "polyline"
+  | "marker"
+  | "circle"
+  | "rectangle"
+  | "route";
+
+export type Geopoint = {
+  type: "marker" | "circle";
+  center: Geography;
+};
+
+export type Geoline = {
+  type: "polygon" | "polyline" | "rectangle";
+  points: Geography[];
+};
+
+export type Georoute = {
+  type: "route";
+  path: { name: string; geoline: string }[];
+};
+
+export type Geoshape = Geopoint | Geoline | Georoute;
+
+export interface Geofence extends Base {
+  color?: string;
+  shape?: Geoshape;
+  floors?: Floor[];
+}
+
+
+/* ----- api/v1/scenes ----- */
+export type Geometry = [x: number, y: number, z?: number];
+
+export interface Room {
+  id: string;
+  name: string;
+  points: Geometry[];
+}
+
+export interface Beacon {
+  name: string;
+  id?: string;
+  type?: string;
+  x: number;
+  y: number;
+  z?: number;
+}
+
+export interface Floor {
+  kind: "floor" | "template";
+  name?: string;
+
+  floorId: string;
+  sceneId: ItemId;
+
+  heightFrom?: number;
+  heightTo?: number;
+
+  beacons?: Beacon[];
+}
+
+export interface Scene extends Base {
+  type: "2d" | "3d";
+  file: ItemId;
+  props?: Record<string, string>;
+}
+
+
+/* ----- api/v1/roles ----- */
+export interface Role extends Base {
+  credentials: string[];
+}
+
+
+/* ----- api/v1/groups ----- */
+export interface Group extends Base {
+  role: ItemId;
+
+  tagname: string;
+  license?: ItemId;
+}
+
+
+/* ----- api/v1/users ----- */
+export interface User extends Base {
+  role: ItemId;
+
+  /** 
+    @validate required, unique
+  */
+  email: string;
+
+  /** 
+    @validate required, unique, alphanumeric, min:4, max:40
+  */
+  login: string;
+
+  /* not stored in db and logs */
+  password?: string;
+
+  phone: string;
+  locale: string;
+  timezoneOffset: number;
+}
+
+
 /* ----- api/v1/index ----- */
 export interface WellKnown {
   base: Base;
@@ -143,6 +284,13 @@ export interface WellKnown {
   objects: RicObject;
 
   events: Event;
+
+  geofences: Geofence;
+  scenes: Scene;
+
+  roles: Role;
+  groups: Group;
+  users: User;
 }
 
 

@@ -1,17 +1,27 @@
 /* ----- api/v1 ----- */
 
-/** test comment */
-export type ItemId = string;
+export type ObjectId = string &
+  Partial<{
+    toHexString(): string;
+  }>;
 
-export interface BaseItem {
-  _id: ItemId;
+export type ItemIdV1 = ObjectId;
 
+export type ItemId = ItemIdV1;
+
+export interface Fresh {
   name: string;
   description?: string;
 
   owner: ItemId;
   group: ItemId;
 }
+
+export type Staged = Fresh & {
+  _id: ItemId;
+};
+
+export type Base = Staged;
 
 
 /* ----- api/v1/models ----- */
@@ -67,7 +77,7 @@ export type ModelProps = {
   idPattern?: string;
 };
 
-export interface Model extends BaseItem {
+export interface Model extends Base {
   base: string;
   data: ModelNode;
   props?: ModelProps;
@@ -81,7 +91,7 @@ export type ServiceState = {
   _gid: ItemId;
   time: number;
   online: boolean;
-}
+};
 
 export type BaseState = ServiceState & {
   [argumentId: string]: number | boolean | string | BaseState;
@@ -94,7 +104,7 @@ export type BaseConfig = {
 };
 
 export interface RicObject<TState = BaseState, TConfig = BaseConfig>
-  extends BaseItem {
+  extends Base {
   id: string;
   model: ItemId;
 
@@ -127,7 +137,7 @@ export interface Event<T = unknown> {
 
 /* ----- api/v1/index ----- */
 export interface WellKnown {
-  base: BaseItem;
+  base: Base;
 
   models: Model;
   objects: RicObject;
@@ -148,13 +158,16 @@ declare var require: any;
 export const VERSION = "v1";
 export const DEFAULT_BASE_URL = "https://dev.rightech.io/";
 
-export type DeprecatedResponseFields = {
+export type DeprecatedResponseV1 = {
   codes: string[];
   success: boolean;
-}
+};
+
+export type DeprecatedResponseV2 = {};
+export type DeprecatedResponse = DeprecatedResponseV1 & DeprecatedResponseV2;
 
 export type ApiErrorHelper = {
-  message?: string;
+  message: string;
   links?: string[];
 };
 
@@ -171,7 +184,14 @@ function unique<T = unknown>(array: T[] = []) {
   });
 }
 
-export class ApiError extends Error {
+export interface ApiError extends Error {
+  url: string;
+  code: number;
+  tags: string[];
+  helper: ApiErrorHelper;
+}
+
+export class ApiError extends Error implements ApiError {
   url: string = "";
   verb: string = "GET";
   tags: string[] = [];
@@ -197,7 +217,7 @@ export class ApiError extends Error {
   }
 
   withHelper(helper: ApiErrorHelper) {
-    this.helper = helper;
+    this.helper = { ...this.helper, ...(helper || {}) };
     if (this.helper && this.helper.message) {
       this.message = `${this.message}. ${this.helper.message}`;
     }
@@ -224,7 +244,7 @@ export class ApiError extends Error {
   static fromJson(opts: RequestOptions, json: ApiError, statusCode = 500) {
     return new ApiError(json.message)
       .withCode(statusCode)
-      .withHelper(json.helper || {})
+      .withHelper(json.helper)
       .withVerb(opts.method)
       .withUrl(opts.url)
       .withTags(json.tags);
@@ -594,7 +614,16 @@ export interface MoreTypedClient {
   ): Promise<T>;
 }
 
-export class Client {
+export interface Client {
+  new (opts?: ClientOpts): Client;
+
+  get<T = unknown>(path: string): Promise<T[]>;
+  post<T = unknown>(path: string, data: Partial<T>): Promise<T>;
+  patch<T = unknown>(path: string, data: Partial<T>): Promise<T>;
+  delete<T = unknown>(path: string): Promise<T>;
+}
+
+export class Client implements Client {
   _opts: ClientOpts;
   url: string;
   token: string;
@@ -686,7 +715,7 @@ export class Client {
   }
 }
 
-export function getDefaultClient(opts?: ClientOpts) : MoreTypedClient & Client {
+export function getDefaultClient(opts?: ClientOpts): MoreTypedClient & Client {
   const maybeNode = (globalThis as any)["process"] as any;
   if (maybeNode && maybeNode.env) {
     return new Client({

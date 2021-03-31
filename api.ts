@@ -13,15 +13,18 @@ export interface Fresh {
   name: string;
   description?: string;
 
-  owner: ItemId;
-  group: ItemId;
+  owner?: ItemId;
+  group?: ItemId;
 }
 
-export type Staged = Fresh & {
+export interface Base {
   _id: ItemId;
-};
+  name: string;
+  description?: string;
 
-export type Base = Staged;
+  owner?: ItemId;
+  group?: ItemId;
+}
 
 
 /* ----- api/v1/models ----- */
@@ -119,10 +122,11 @@ export type MqttState = {
   payload: string;
 };
 
-export type State = ServiceState &
-  GpsState &
-  MqttState &
-  GeometryState & {
+export type State = ServiceState
+  & GpsState
+  & MqttState 
+  & GeometryState 
+  & {
     [argumentId: string]: number | boolean | string;
   };
 
@@ -138,7 +142,7 @@ export interface RicObject<TState = State, TConfig = Config> extends Base {
   id: string;
   model: ItemId;
 
-  state?: TState;
+  state?: Readonly<TState>;
   config?: TConfig;
 }
 
@@ -174,7 +178,8 @@ export type GeographyType =
   | "marker"
   | "circle"
   | "rectangle"
-  | "route";
+  | "route"
+  | string;
 
 export type Geopoint = {
   type: "marker" | "circle";
@@ -186,9 +191,21 @@ export type Geoline = {
   points: Geography[];
 };
 
+export type Waypoint = {
+  center: Geography;
+  name: string;
+  check?: boolean;
+};
+
+export type GeorouteTrip = {
+  type: "direct" | "return";
+  points: Geography[];
+  waypoints: Waypoint[];
+};
+
 export type Georoute = {
   type: "route";
-  path: { name: string; geoline: string }[];
+  trips: GeorouteTrip[];
 };
 
 export type Geoshape = Geopoint | Geoline | Georoute;

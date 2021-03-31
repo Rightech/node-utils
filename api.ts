@@ -9,14 +9,6 @@ export type ItemIdV1 = ObjectId;
 
 export type ItemId = ItemIdV1;
 
-export interface Fresh {
-  name: string;
-  description?: string;
-
-  owner?: ItemId;
-  group?: ItemId;
-}
-
 export interface Base {
   _id: ItemId;
   name: string;
@@ -25,6 +17,8 @@ export interface Base {
   owner?: ItemId;
   group?: ItemId;
 }
+
+export type Fresh = Omit<Base, "_id">;
 
 
 /* ----- api/v1/models ----- */

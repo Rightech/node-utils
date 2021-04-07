@@ -682,11 +682,11 @@ export async function req<Q = unknown, S = unknown>(
   return json;
 }
 
-function nodeReadStream(stream: any) {
+function nodeReadStream<T = unknown>(stream: any) {
   const events = new EventEmitter0();
-  const batches = [];
+  const batches: T[][] = [];
 
-  let batch = [];
+  let batch: T[] = [];
   let totalBytes = 0;
 
   const batchInterval = setInterval(() => {
@@ -741,7 +741,7 @@ function nodeReadStream(stream: any) {
     }
   });
 
-  stream.on("error", (err) => {
+  stream.on("error", (err: any) => {
     events.emit("end", err);
     clearInterval(batchInterval);
   });
@@ -761,7 +761,7 @@ function nodeReadStream(stream: any) {
           if (batch.length) {
             batches.push(batch);
           }
-          resolve([].concat(...batches));
+          resolve([].concat(...(batches as any)));
         });
       }),
   };
@@ -775,7 +775,7 @@ export async function reqReader<Q = unknown, S = unknown>(
   if (typeof _fetch !== "function") {
     /* try with node streams */
     const resp = await nodeReq(opts, { returnStream: true });
-    return nodeReadStream(resp) as StreamReader<S>;
+    return nodeReadStream<S>(resp) as StreamReader<S>;
   }
 
   const resp = await _fetch(opts.url, {

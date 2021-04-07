@@ -12,13 +12,22 @@ export type ItemId = ItemIdV1;
 export interface Base {
   _id: ItemId;
   name: string;
+  time: number;
   description?: string;
 
   owner?: ItemId;
   group?: ItemId;
+
+  links?: Record<string, Link[]>;
 }
 
 export type Fresh = Omit<Base, "_id">;
+
+export interface Link {
+  session: string;
+  time: number;
+  id: ItemId;
+}
 
 
 /* ----- api/v1/models ----- */
@@ -424,7 +433,8 @@ export class NginxError extends ApiError {
 }
 
 export function nodeReq<Q = unknown, S = unknown>(
-  opts: RequestOptions<Q>
+  opts: RequestOptions<Q>,
+  { returnStream }: { returnStream?: boolean } = {}
 ): Promise<S> {
   const { protocol, hostname, port, pathname, search } = new URL(opts.url);
 
@@ -446,6 +456,10 @@ export function nodeReq<Q = unknown, S = unknown>(
     const req = proto.request(
       options,
       (res: EventEmitter0 & { statusCode: number }) => {
+        if (returnStream) {
+          resolve(res as any);
+          return;
+        }
         let resp = "";
         res.on("data", (chunk: string) => (resp += chunk.toString()));
         res.on("end", () => {
@@ -487,11 +501,7 @@ function tryGetFetch(): (
   input: RequestInfo,
   init?: RequestInit
 ) => Promise<Response> {
-  try {
-    return require("node-fetch");
-  } catch (_) {
-    return (globalThis as any)["fetch"] as any;
-  }
+  return (globalThis as any)["fetch"] as any;
 }
 
 class EventEmitter0 {
@@ -515,6 +525,12 @@ class EventEmitter0 {
 function read(response: ReadableStream<Uint8Array>) {
   let cancellationToken: { cancel: () => void };
   let cancellationRequest = false;
+
+  const deno = (globalThis as any)["Deno"] as any;
+  let streamOptions = { stream: true } as any;
+  if (deno) {
+    streamOptions = {};
+  }
 
   const events = new EventEmitter0();
   const stream = new ReadableStream({
@@ -547,7 +563,7 @@ function read(response: ReadableStream<Uint8Array>) {
             return;
           }
 
-          const data = decoder.decode(result.value, { stream: true } as any);
+          const data = decoder.decode(result.value, streamOptions);
           buf += data;
           totalBytes += buf.length;
 
@@ -667,27 +683,87 @@ export async function req<Q = unknown, S = unknown>(
 }
 
 function nodeReadStream(stream: any) {
-  const JSONStream = require("JSONStream");
   const events = new EventEmitter0();
+  const batches = [];
 
-  const s0 = JSONStream.parse();
-  const s1 = stream.pipe(s0);
-
+  let batch = [];
   let totalBytes = 0;
+
+  const batchInterval = setInterval(() => {
+    const stats = { totalBytes };
+    events.emit("batch", { batch, stats });
+    batches.push(batch);
+    batch = [];
+  }, 500);
+
+  let prevTail = "";
 
   stream.on("data", (data: string) => {
     totalBytes += data.length;
-    const stats = { bytes: data.length, totalBytes };
-    events.emit("batch", { stats });
+
+    let text = data.toString();
+
+    if (text.startsWith("[\n")) {
+      text = text.slice(1);
+      events.emit("start");
+    }
+
+    if (prevTail) {
+      text = `${prevTail}${text}`;
+      prevTail = "";
+    }
+
+    let lines = text.split("\n,\n").filter((l) => !!l);
+    const last = lines[lines.length - 1];
+
+    if (last && !last.endsWith("]\n")) {
+      try {
+        JSON.parse(last);
+      } catch (err) {
+        prevTail = last;
+        lines = lines.slice(0, -1);
+      }
+    }
+    if (last && last.endsWith("]\n")) {
+      lines[lines.length - 1] = last.slice(0, -2);
+    }
+
+    lines = lines.filter((l) => l != "\n");
+
+    for (let l of lines) {
+      if (l.startsWith(",\n")) {
+        l = l.slice(2);
+      }
+      if (l === "\n]\n") {
+        continue;
+      }
+      batch.push(JSON.parse(l));
+    }
+  });
+
+  stream.on("error", (err) => {
+    events.emit("end", err);
+    clearInterval(batchInterval);
   });
 
   stream.on("end", () => {
     events.emit("end");
+    clearInterval(batchInterval);
   });
 
   return {
     events,
-    stream: s1,
+    stream,
+    readAll: () =>
+      new Promise((resolve, reject) => {
+        events.on("error", reject);
+        events.on("end", () => {
+          if (batch.length) {
+            batches.push(batch);
+          }
+          resolve([].concat(...batches));
+        });
+      }),
   };
 }
 
@@ -697,7 +773,9 @@ export async function reqReader<Q = unknown, S = unknown>(
   const _fetch = tryGetFetch();
 
   if (typeof _fetch !== "function") {
-    throw new Error("readable stream available for fetch api only");
+    /* try with node streams */
+    const resp = await nodeReq(opts, { returnStream: true });
+    return nodeReadStream(resp) as StreamReader<S>;
   }
 
   const resp = await _fetch(opts.url, {
@@ -708,10 +786,6 @@ export async function reqReader<Q = unknown, S = unknown>(
 
   if (resp.status >= 400) {
     throw ApiError.fromJson(opts, await resp.json(), resp.status);
-  }
-
-  if (typeof ReadableStream === "undefined") {
-    return nodeReadStream(resp.body);
   }
 
   return read(resp.body!);
@@ -776,10 +850,13 @@ export interface MoreTypedClient {
 export interface Client {
   new (opts?: ClientOpts): Client;
 
-  get<T = unknown>(path: string): Promise<T[]>;
+  get<T = unknown>(path: string): Promise<T>;
   post<T = unknown>(path: string, data: Partial<T>): Promise<T>;
   patch<T = unknown>(path: string, data: Partial<T>): Promise<T>;
   delete<T = unknown>(path: string): Promise<T>;
+
+  /** query params stringification helper */
+  qs(params: Record<string, string | string[] | number>): string;
 }
 
 export class Client implements Client {
@@ -862,9 +939,17 @@ export class Client implements Client {
     return new Client({ ...(this._opts || {}), ...opts });
   }
 
-  /* ↓ not part of api right now */
+  qs(params: Record<string, string | string[] | number>): string {
+    const u = new URL("/", "http://localhost");
+    for (const [k, v] of Object.entries(params || {})) {
+      u.searchParams.set(k, (v || "").toString());
+    }
+    return u.search.replace("?", "");
+  }
 
-  read<T = unknown>(path: string): Promise<StreamReader<T>> {
+  /* ↓ not part of api right now, 
+       very unstable, so experimental, much discouraged */
+  getStream<T = unknown>(path: string): Promise<StreamReader<T>> {
     const url = this.resolveUrl(path);
     url.searchParams.set("streamed", "true");
     url.searchParams.set("nolimit", "true");

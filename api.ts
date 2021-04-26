@@ -712,6 +712,10 @@ function nodeReadStream<T = unknown>(stream: any) {
       text = `${prevTail}${text}`;
       prevTail = "";
     }
+    
+    if (text.startsWith("\n\n]")) {
+      return;
+    }
 
     let lines = text.split("\n,\n").filter((l) => !!l);
     const last = lines[lines.length - 1];

@@ -100,6 +100,29 @@ function timeSpan(date) {
   return days + time(date, DEFAULT_24H_LOCALE);
 }
 
+function isoDateTime(d) {
+  const date = new Date(d || Date.now());
+  if (!isFinite(+date)) {
+    return fallback;
+  }
+  return date.toISOString();
+}
+
+function isoDate(d) {
+  const date = new Date(d || Date.now());
+  if (!isFinite(+date)) {
+    return fallback;
+  }
+  return date.toISOString().split('T')[0];
+}
+
+function isoTime(d) {
+  const date = new Date(d || Date.now());
+  if (!isFinite(+date)) {
+    return fallback;
+  }
+  return date.toISOString().split('T')[1].split('.')[0];
+}
 
 function number(value, fixed) {
   if (isNaN(value) || !isFinite(value)) {
@@ -183,6 +206,10 @@ function percent(value, total, format) {
 
 module.exports = {
   setLocale,
+
+  isoDateTime,
+  isoDate,
+  isoTime,
 
   date,
   time,

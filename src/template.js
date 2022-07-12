@@ -50,14 +50,20 @@ function none(input, value) {
 }
 
 Object.assign(expressions.filters, {
+  isoDateTime: format.isoDateTime,
+  isoDate: format.isoDate,
+  isoTime: format.isoTime,
+
   date: format.date,
   time: format.time,
   dateTime: format.dateTime,
   dateOrTime: format.dateOrTime,
   timeSpan: format.timeSpan,
+
   number: format.number,
   currency: format.currency,
   percent: format.percent,
+  
   every,
   some,
   none

@@ -16,7 +16,7 @@
  */
 
 
-const colors = require('colors/safe');
+const colors = require('@colors/colors/safe');
 const merge = require('deepmerge');
 const { inspect } = require('util');
 

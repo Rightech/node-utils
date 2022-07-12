@@ -1,6 +1,6 @@
 {
   "name": "@rightech/utils",
-  "version": "1.2.7",
+  "version": "1.3.1",
   "description": "",
   "main": "index.js",
   "private": false,
@@ -24,9 +24,9 @@
   },
   "homepage": "https://github.com/Rightech/node-utils#readme",
   "dependencies": {
+    "@colors/colors": "^1.5.0",
     "acorn-walk": "^7.2.0",
-    "angular-expressions": "^1.1.1",
-    "colors": "^1.4.0",
+    "angular-expressions": "^1.1.5",
     "deepmerge": "^4.2.2",
     "mustache": "^3.1.0",
     "nanoid": "^2.1.6",
